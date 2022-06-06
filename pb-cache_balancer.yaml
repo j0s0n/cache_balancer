@@ -1,0 +1,58 @@
+- name: Download project in local from github
+  hosts: localhost
+  tasks:
+    - name: Download project
+      git:
+        repo: https://github.com/j0s0n/cache_balancer.git
+        dest: /tmp/cache_balancer
+        clone: yes
+        update: yes
+    - name: Compress project
+      archive:
+        path: /tmp/cache_balancer
+        dest: /tmp/cache_balancer.tgz
+
+- name: Launch Nginx cache and load balancer with docker compose
+  hosts: "{{ hosts | default('empty') }}"
+  tasks:
+    - name: Copy project to remote host
+      copy:
+        src: /tmp/cache_balancer.tgz
+        dest: /tmp/cache_balancer.tgz
+    - name: Decompress project
+      unarchive:
+        src: /tmp/cache_balancer.tgz
+        dest: /root
+    - name: Delete compressed project
+      file:
+        path: /tmp/cache_balancer.tgz
+        state: absent
+    - name: Create volume directory
+      file:
+        path: /root/nginx
+        state: directory
+    - name: Copy web index to volume
+      copy:
+        src: /root/cache_balancer/index.html
+        dest: /root/nginx
+        remote_src: yes
+    - name: Remove existing services
+      docker_compose:
+        project_src: /root/cache_balancer
+        state: absent
+    - name: Create and start services
+      docker_compose:
+        project_src: /root/cache_balancer
+      register: output
+
+- name: Remove files from local
+  hosts: localhost
+  tasks:
+    - name: Remove project directory
+      file:
+        path: /tmp/cache_balancer
+        state: absent
+    - name: Remove compressed project
+      file:
+        path: /tmp/cache_balancer.tgz
+        state: absent

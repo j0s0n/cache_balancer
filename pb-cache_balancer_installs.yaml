@@ -1,0 +1,47 @@
+- name: Download docker repo in local
+  hosts: localhost
+  tasks:
+    - name: Download docker repo
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /tmp
+
+- name: Docker set up
+  hosts: "{{ hosts | default('empty') }}"
+  tasks:
+    - name: Copy repo from local to host
+      copy:
+        src: /tmp/docker-ce.repo
+        dest: /etc/yum.repos.d
+    - name: Install docker
+      dnf:
+        name: docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin, python3-pip
+        state: latest
+    - name: Start docker
+      service:
+        name: docker
+        state: started
+    - name: Enable docker
+      service:
+        name: docker
+        enabled: yes
+    - name: Upgrade pip3
+      pip:
+        name: pip
+        state: latest
+    - name: Install packages for python
+      pip:
+        name:
+          - docker
+          - docker-compose
+    - name: Autoremove unneeded packages installed as dependencies
+      dnf:
+        autoremove: yes
+
+- name: Remove files from local
+  hosts: localhost
+  tasks:
+    - name: Remove docker repo
+      file:
+        path: /tmp/docker-ce.repo
+        state: absent
